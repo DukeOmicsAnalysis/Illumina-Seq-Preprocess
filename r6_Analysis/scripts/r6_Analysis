@@ -1,0 +1,12 @@
+#!/bin/sh
+
+scriptdir=`dirname $0`
+source $scriptdir/xprep.sh
+source $scriptdir/a_software_versions.sh
+source $scriptdir/a_dirnames.sh
+source $scriptdir/g_filelist.sh
+source $scriptdir/a_refdata.sh
+
+rscript -e "source(\"$scriptdir/R/Analysis.R\")" \
+        -e "doAll()"
+

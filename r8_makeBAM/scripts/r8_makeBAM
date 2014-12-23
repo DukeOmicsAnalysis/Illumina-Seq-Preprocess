@@ -1,0 +1,44 @@
+#!/bin/sh
+
+# Time: about 1 hour
+
+scriptdir=$(readlink -f $(dirname $0))
+source $scriptdir/xprep.sh
+source $scriptdir/a_software_versions.sh
+source $scriptdir/a_dirnames.sh
+source $scriptdir/g_filelist.sh
+source $scriptdir/a_refdata.sh
+
+if [ ! -e $star_dir ]; then
+    echo "ERROR: directory not found: $star_dir"
+    exit
+fi
+
+if [ -e $bam_dir ]; then
+    echo -n "  Removing existing directory $bam_dir..."
+    rm -rf $bam_dir;
+    echo "Done."
+fi
+
+echo -n "  Creating new directory $bam_dir..."
+mkdir -p $bam_dir
+echo "Done."
+
+echo -n "  Converting $NR_SAMPLES SAM files to sorted BAM files..."
+for sn in $SAMPLENAMES; do
+     nice samtools view -S -b $star_dir/${sn}_Aligned.out.sam 2> /dev/null \
+       | nice samtools sort - $bam_dir/${sn}_sorted 2> /dev/null &
+done
+wait
+echo "Done."
+
+echo -n "  Indexing $NR_SAMPLES BAM files..."
+for sn in $SAMPLENAMES; do
+    nice samtools index $bam_dir/${sn}_sorted.bam 2> /dev/null &
+done
+wait
+echo "Done."
+
+echo "Done."
+S=$SECONDS
+printf "Elapsed time: %d:%02d:%02d\n" "$(($S/3600))" "$(($S/60%60))" "$(($S%60))"

@@ -1,0 +1,42 @@
+#!/bin/sh
+
+# Time: about 2.5 hours
+
+scriptdir=$(readlink -f $(dirname $0))
+source $scriptdir/xprep.sh
+source $scriptdir/a_software_versions.sh
+source $scriptdir/a_dirnames.sh
+source $scriptdir/g_filelist.sh
+source $scriptdir/a_refdata.sh
+
+echo "Running HTSeq:"
+
+if [ ! -e $star_dir ]; then
+    echo "ERROR: directory not found: $star_dir"
+    exit
+fi
+
+if [ -e $htseq_dir ]; then
+    echo -n "  Removing existing directory $htseq_dir..."
+    rm -rf $htseq_dir;
+    echo "Done."
+fi
+
+echo -n "  Creating new directory $htseq_dir..."
+mkdir -p $htseq_dir
+echo "Done."
+
+echo -n "  Counting reads in $NR_SAMPLES samples..."
+for sn in $SAMPLENAMES; do
+    nice htseq-count -s no -t exon -i gene_id \
+                     $star_dir/${sn}_Aligned.out.sam\
+                     $gtffile \
+                     > $htseq_dir/${sn}_htseq.count \
+                     2> $htseq_dir/${sn}_htseq.err &
+done
+wait
+echo "Done."
+
+echo "Done."
+S=$SECONDS
+printf "Elapsed time: %d:%02d:%02d\n" "$(($S/3600))" "$(($S/60%60))" "$(($S%60))"

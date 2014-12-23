@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# IMPORTANT: this script should be invoked from 'install' script in pipeline directory.
+# It will fail if invoked directly.
+
+
+scriptdir=$(readlink -m $(dirname $0))
+
+pipeline_part_name="r8_makeBAM"
+
+source $scriptdir/../subinstall_common_part.sh
+
+echo "  Copying files to $projscriptsdir..."
+cp -r $scriptdir/scripts/* $projscriptsdir

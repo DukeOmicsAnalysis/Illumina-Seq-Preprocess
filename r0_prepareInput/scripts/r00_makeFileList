@@ -1,0 +1,6 @@
+#!/bin/sh
+
+scriptdir=$(readlink -f $(dirname $0))
+source $scriptdir/xprep.sh
+
+$scriptdir/xvpy -v $scriptdir/p_makefilelists.py a_files.txt sd

@@ -1,0 +1,86 @@
+#!/bin/sh
+
+scriptdir=$(readlink -f $(dirname $0))
+source $scriptdir/xprep.sh
+source $scriptdir/software_versions.sh
+source $scriptdir/a_dirnames.sh
+source $scriptdir/g_filelist.sh
+
+source export_GSEA.sh
+
+# Arguments: analysis-name
+#            contrast-name
+runGSEA () {
+    # Default values for GSEA parameters:
+        # -collapse true \
+        # -mode Max_probe \
+        # -norm meandiv \
+        # -nperm 1000 \
+        # -scoring_scheme weighted \
+        # -include_only_symbols true \
+        # -make_sets true \
+        # -plot_top_x 20 \
+        # -rnd_seed timestamp \
+        # -set_max 500 \
+        # -set_min 15 \
+        # -zip_report false \
+    echo "Running GSEA for $1 / $2..."
+    mkdir -p $results_dir/$1/GSEA
+    nice java -cp $GSEA_HOME/jars/gsea2-$GSEA_VERSION.jar xtools.gsea.GseaPreranked \
+        -rnk $gsea_dir/$1/$2.rnk \
+        -gmx gseaftp.broadinstitute.org://pub/gsea/gene_sets/c2.all.v4.0.symbols.gmt \
+        -chip gseaftp.broadinstitute.org://pub/gsea/annotations/GENE_SYMBOL.chip \
+        -collapse false \
+        -out $results_dir/$1/GSEA \
+        -rpt_label ${2}_C2 \
+        -gui false > /dev/null &
+    nice java -cp $GSEA_HOME/jars/gsea2-$GSEA_VERSION.jar xtools.gsea.GseaPreranked \
+        -rnk $gsea_dir/$1/$2.rnk \
+        -gmx gseaftp.broadinstitute.org://pub/gsea/gene_sets/c5.all.v4.0.symbols.gmt \
+        -chip gseaftp.broadinstitute.org://pub/gsea/annotations/GENE_SYMBOL.chip \
+        -collapse false \
+        -out $resdir/$1/GSEA \
+        -rpt_label ${2}_C5 \
+        -gui false > /dev/null &
+    wait
+    echo "Done."
+}
+
+cd $results_dir
+
+# Remove old result directories
+echo "Removing old GSEA result directories..."
+find $result_dir -type d -name GSEA -exec rm -rf '{}' \;
+echo "Done."
+
+# Running GSEA
+for d1 in $gsea_dir/*; do
+    aname=$(basename $d1)
+    for d2 in $d1/*; do
+        contr=$(basename $d2)
+        contr=${contr%.rnk}
+        
+        runGSEA $aname $contr
+        
+        cd $results_dir/$aname/GSEA
+        gsea_result_dir=$(ls -d -1 ${contr}_C2*)
+        if [ -n "$gsea_result_dir" ]; then
+            ln -s $gsea_result_dir ${contr}_CuratedPathways
+            echo "  Created:  ${contr}_CuratedPathways  -->  $gsea_result_dir"
+        fi
+        gsea_result_dir=$(ls -d -1 ${contr}_C5*)
+        if [ -n "$gsea_result_dir" ]; then
+            ln -s $gsea_result_dir ${contr}_GOterms
+            echo "  Created:  ${contr}_GOterms          -->  $gsea_result_dir"
+        fi
+        cd -
+    done
+done
+
+# Remove temporary directory created by GSEA (names like "apr25", may be today yesterday)
+for dirdate in $(date +%b%d) $(date +%b%d -d '-1 day'); do
+    dirdate=${dirdate,,}
+    if [ -d "$dirdate" ]; then
+        rmdir $dirdate
+    fi
+done

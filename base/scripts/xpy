@@ -1,0 +1,12 @@
+#!/bin/sh
+
+scriptdir=`dirname $0`
+source $scriptdir/xprep.sh
+
+export PYTHONPATH=$scriptdir/xpymodules
+
+# Note: PYTNONSTARUP works only for interactive python
+export PYTHONSTARTUP=$scriptdir/xpystartup.py
+
+python "$@"
+

@@ -1,0 +1,41 @@
+#!/bin/sh
+
+scriptdir=$(readlink -f $(dirname $0))
+source $scriptdir/xprep.sh
+source $scriptdir/a_dirnames.sh
+source $scriptdir/g_filelist.sh
+
+echo "Preparing input:"
+
+if [ -d $input_dir ]; then
+    echo -n "  Removing existing directory $input_dir..."
+    rm -rf $input_dir
+    echo "Done."
+fi
+
+echo -n "  Creating new directory $input_dir..."
+mkdir -p $input_dir
+echo "Done."
+
+if [ "$NEEDS_CONCATENATION" == "T" ]; then
+    # Need to unpack and concatenate files
+    echo -n "  Upacking and concatenating $NR_SOURCE_FILES souce files to $NR_FILES files..."
+    cd $rawdata_dir
+    for bf in $BASE_FILENAMES; do
+        nice zcat -f $(getOrigFiles $bf) > $input_dir/$bf$PRIMARY_EXT &
+    done
+    wait
+    cd - &> /dev/null   # suppress directory name
+    echo "Done."
+else
+    # Need to create symlinks
+    echo -n "  Creating symlinks..."
+    for bf in $BASE_FILENAMES; do
+        ln -s $rawdata_dir/$(getOrigFiles $bf) $input_dir/$bf$PRIMARY_EXT$SECONDARY_EXT
+    done
+    echo "Done."
+fi
+
+echo "Done."
+S=$SECONDS
+printf "Elapsed time: %d:%02d:%02d\n" "$(($S/3600))" "$(($S/60%60))" "$(($S%60))"

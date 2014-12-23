@@ -1,0 +1,48 @@
+#!/bin/sh
+
+
+scriptdir=$(readlink -f $(dirname $0))
+source $scriptdir/xprep.sh
+source $scriptdir/a_software_versions.sh
+source $scriptdir/a_dirnames.sh
+source $scriptdir/g_filelist.sh
+
+if [ -z "$remove_patterns" ]; then
+    echo "ERROR: variable 'remove_patterns' is not set."
+    echo "Set it in 'scripts/a_dirnames.sh' and re-run this script."
+    exit
+fi
+
+echo "The following files will be deleted from $procdata_dir:"
+printf "%25s  %5s %18s\n" Pattern Files Bytes
+total_files=0
+total_bytes=0
+set -f
+for patt in $remove_patterns; do
+    set +f
+    nfiles=$(ls -1 $procdata_dir/$patt 2>/dev/null | wc -l)
+    total_files=$((total_files + nfiles))
+    nbytes=$(du --block-size=1 -c $procdata_dir/$patt 2>/dev/null | tail -n 1 | cut -f1)
+    total_bytes=$((total_bytes + nbytes))
+    set -f
+    printf  "%25s  %5d %'18d\n"  $patt  $nfiles  $nbytes
+done
+set +f
+printf  "%-25s  %5d %'18d\n" "Total:" $total_files $total_bytes
+
+
+if [ "$1" == "go" ]; then
+    echo "Deleting:"
+    set -f
+    for patt in $remove_patterns; do
+        echo -n "$patt..."
+        set +f
+        rm -rf $procdata_dir/$patt
+        set -f
+        echo "Done."
+    done
+    set +f
+else
+    echo "To delete, execute:"
+    echo "    $0  go"
+fi

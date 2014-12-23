@@ -1,0 +1,74 @@
+#!/bin/sh
+
+# Time: about 1 hour
+
+scriptdir=$(readlink -f $(dirname $0))
+source $scriptdir/xprep.sh
+source $scriptdir/a_software_versions.sh
+source $scriptdir/a_dirnames.sh
+source $scriptdir/g_filelist.sh
+source $scriptdir/a_refdata.sh
+
+echo "Running STAR:"
+
+if [ ! -e $trimgalore_dir ]; then
+    echo "ERROR: directory not found: $trimgalore_dir"
+    exit
+fi
+
+if [ -e $star_dir ]; then
+    echo -n "  Removing existing directory $star_dir..."
+    rm -rf $star_dir;
+    echo "Done."
+fi
+
+echo -n "  Creating new directory $star_dir..."
+mkdir -p $star_dir
+echo "Done."
+
+# Pre-loading genome should speedup the alignment
+# But there is a stupid problem: STAR creates file Aligned.out.sam in the current directory
+# even if no alignment is requested.
+# To solve this problem, we create processedData/tmp and then remove it.
+tmp_dir=$procdata_dir/tmp
+mkdir -p $tmp_dir
+echo -n "  Pre-loading STAR genome data..."
+STAR --genomeDir $genomedir --genomeLoad LoadAndExit --outFileNamePrefix $tmp_dir/a_ &> /dev/null
+[ $? -eq 0 ] && echo "Done." || echo "FAILED!"
+
+# Note: TrimGalore produces different filename suffixes for single-end and paired-end input
+for sn in $SAMPLENAMES; do
+    if [ "$IS_PAIRED_END" == "T" ]; then
+        echo -n "  Aligning paired-end sample $sn..."
+        nice STAR --runThreadN 30 \
+             --genomeDir $genomedir \
+             --genomeLoad LoadAndKeep \
+             --readFilesIn $trimgalore_dir/${sn}_R1_val_1.fq $trimgalore_dir/${sn}_R2_val_2.fq \
+             --outFileNamePrefix $star_dir/${sn}_ \
+             --outSAMstrandField intronMotif \
+             --outSAMattributes Standard \
+             --outFilterMultimapNmax 1 \
+             --alignSJoverhangMin 500 &> /dev/null
+    else
+        echo -n "  Aligning single-end sample $sn..."
+        nice STAR --runThreadN 30 \
+             --genomeDir $genomedir \
+             --genomeLoad LoadAndKeep \
+             --readFilesIn $trimgalore_dir/${sn}_R1_trimmed.fq \
+             --outFileNamePrefix $star_dir/${sn}_ \
+             --outSAMstrandField intronMotif \
+             --outSAMattributes Standard \
+             --outFilterMultimapNmax 1 \
+             --alignSJoverhangMin 500 &> /dev/null
+    fi
+    [ $? -eq 0 ] && echo "Done." || echo "FAILED!"
+done
+
+echo -n "  Un-loading STAR genome data..."
+STAR --genomeDir $genomedir --genomeLoad Remove --outFileNamePrefix $tmp_dir/b_ &> /dev/null
+[ $? -eq 0 ] && echo "Done." || echo "FAILED!"
+rm -rf $tmp_dir
+
+echo "Done."
+S=$SECONDS
+printf "Elapsed time: %d:%02d:%02d\n" "$(($S/3600))" "$(($S/60%60))" "$(($S%60))"

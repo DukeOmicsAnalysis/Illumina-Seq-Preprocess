@@ -1,0 +1,25 @@
+#!/bin/sh
+
+scriptdir=`dirname $0`
+source $scriptdir/xprep.sh
+
+export PYTHONPATH=$scriptdir/xpymodules
+
+# Note: PYTNONSTARUP works only for interactive python
+export PYTHONSTARTUP=$scriptdir/xpystartup.py
+
+# Depending on wheter virtual environment is enabled
+if [ -z $VIRTUAL_ENV ]; then
+    # Virtual environment is NOT enabled
+    if [ -f $scriptdir/venv/bin/activate ]; then
+        source $scriptdir/venv/bin/activate
+        python "$@"
+        deactivate
+    else
+        echo "No virtualenv: no file $scriptdir/venv/bin/activate"
+    fi
+else
+    # Virtual environment is already enabled
+    python "$@"
+fi
+

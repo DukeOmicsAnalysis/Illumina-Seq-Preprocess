@@ -1,0 +1,62 @@
+#!/bin/sh
+
+# Time: about 2.5 hours
+
+scriptdir=$(readlink -f $(dirname $0))
+source $scriptdir/xprep.sh
+source $scriptdir/a_software_versions.sh
+source $scriptdir/a_dirnames.sh
+source $scriptdir/g_filelist.sh
+
+echo "Running TrimGalore:"
+
+tgrepdir=$trimgalore_dir/reports
+
+if [ ! -d $input_dir ]; then
+    echo "ERROR: directory not found: $input_dir"
+    exit
+fi
+
+if [ -e $trimgalore_dir ]; then
+    echo -n "  Removing existing directory $trimgalore_dir..."
+    rm -rf $trimgalore_dir;
+    echo "Done."
+fi
+
+echo -n "  Creating new directory $trimgalore_dir..."
+mkdir -p $trimgalore_dir
+echo "Done."
+
+# We have unzipped files if concatenation was performed;
+# without concatenation, we have secondary extension.
+if [ "$NEEDS_CONCATENATION" == "T" ]; then
+    sec_ext=$SECONDARY_EXTENSION
+else
+    sec_ext=""
+fi
+
+if [ "$IS_PAIRED_END" == "T" ]; then
+    echo -n "  Processing $NR_SAMPLES paired-end samples..."
+    for sn in $SAMPLENAMES; do
+        nice trim_galore --suppress_warn --dont_gzip --paired -o $trimgalore_dir \
+                         $input_dir/${sn}_R1$PRIMARY_EXT$sec_ext \
+                         $input_dir/${sn}_R2$PRIMARY_EXT$sec_ext &> /dev/null  &
+    done
+else
+    echo -n "  Processing $NR_SAMPLES single-end samples..."
+    for sn in $SAMPLENAMES; do
+        nice trim_galore --suppress_warn --dont_gzip -o $trimgalore_dir \
+                         $input_dir/${sn}_R1$PRIMARY_EXT$sec_ext &> /dev/null &
+    done
+fi
+wait
+echo "Done."
+
+echo -n "  Moving reports to $tgrepdir..."
+mkdir -p $tgrepdir
+mv $trimgalore_dir/*_trimming_report.txt $tgrepdir
+echo "Done."
+
+echo "Done."
+S=$SECONDS
+printf "Elapsed time: %d:%02d:%02d\n" "$(($S/3600))" "$(($S/60%60))" "$(($S%60))"

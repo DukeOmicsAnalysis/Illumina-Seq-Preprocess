@@ -1,0 +1,22 @@
+#!/bin/sh
+
+scriptdir=`dirname $0`
+source $scriptdir/xprep.sh
+
+# Depending on wheter virtual environment is enabled
+if [ -z $VIRTUAL_ENV ]; then
+    # Virtual environment is NOT enabled
+    if [ -f $scriptdir/venv/bin/activate ]; then
+        source $scriptdir/venv/bin/activate
+        pip "$@"
+        rc=$?
+        deactivate
+    else
+        echo "No virtualenv: no file $scriptdir/venv/bin/activate"
+    fi
+else
+    # Virtual environment is already enabled
+    pip "$@"
+    rc=$?
+fi
+exit $rc

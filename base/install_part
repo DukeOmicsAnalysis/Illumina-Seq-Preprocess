@@ -1,0 +1,34 @@
+#!/bin/bash
+
+# IMPORTANT: this script should be invoked from 'install' script in pipeline directory.
+# It will fail if invoked directly.
+
+scriptdir=$(readlink -m $(dirname $0))
+
+pipeline_part_name="common"
+
+source $scriptdir/../subinstall_common_part.sh
+
+echo "  Copying files to $projscriptsdir..."
+cp -r $scriptdir/scripts/* $projscriptsdir
+
+echo "  Preparing Python virtual environment in $projscriptsdir/venv..."
+if [ -d $projscriptsdir/venv ]; then
+    echo "  WARNING: virtual environment already exist, skipping."
+    echo "           If you want to re-create virtual environment, remove directory"
+    echo "           $projscriptsdir/venv"
+else
+    cd $projscriptsdir
+    virtualenv -q -p python2.7 venv
+    pip_install () {
+        echo -n "    Installing "$@" ... "
+        ./xpip -q install "$@" &> /dev/null
+        [ $? -eq 0 ] && echo "OK." || echo "FAILED."
+    }
+    pip_install --upgrade pip
+    pip_install xlrd
+    pip_install xlwt
+    pip_install termcolor
+fi
+echo "  Virtual environment is prepared, packages installed:"
+./xpip freeze | sed 's|^|    |'

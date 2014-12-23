@@ -1,0 +1,65 @@
+#!/bin/sh
+
+# Time: 20 min
+
+# IMPORTANT: each FastQC process creates more than 30 threads, so launching a large number
+# of FastQC processes hits the limit of threads per user (1024).
+# Instead, we launch here a single FastQC process which uses multiple threads to process
+# all files in parallel.
+
+scriptdir=$(readlink -f $(dirname $0))
+source $scriptdir/xprep.sh
+source $scriptdir/a_software_versions.sh
+source $scriptdir/a_dirnames.sh
+source $scriptdir/g_filelist.sh
+
+echo "Running FastQC:"
+
+if [ ! -e $trimgalore_dir ]; then
+    echo "ERROR: directory not found: $trimgalore_dir"
+    exit
+fi
+
+if [ -e $fastqc_dir ]; then
+    echo -n "  Removing existing directory $fastqc_dir..."
+    rm -rf $fastqc_dir;
+    echo "Done."
+fi
+
+echo -n "  Creating new directory $fastqc_dir..."
+mkdir -p $fastqc_dir
+echo "Done."
+
+# Create list of files
+# Note: TrimGalore produces different filename suffixes for single-end and paired-end input
+filelist=""
+for sn in $SAMPLENAMES; do
+    if [ "$IS_PAIRED_END" == "T" ]; then
+        filelist="$filelist ${sn}_R1_val_1.fq ${sn}_R2_val_2.fq"
+    else
+        filelist="$filelist ${sn}_R1_trimmed.fq"
+    fi
+done
+
+echo -n "  Running FastQC on $(echo $filelist | wc -w) files with 40 threads..."
+cd $trimgalore_dir
+nice fastqc -t 40 -q -o $fastqc_dir $filelist &> /dev/null
+cd - &> /dev/null
+echo "Done."
+
+# Remove zipped results
+echo -n "  Removing zipped FastQC results..."
+rm $fastqc_dir/*.zip
+echo "Done."
+
+# Create and print statistics
+export IS_PAIRED_END
+export BASE_FILENAMES
+$scriptdir/xvpy $scriptdir/p_fqcsumm.py $fastqc_dir > $fastqc_dir/summary.txt
+echo
+cat $fastqc_dir/summary.txt
+echo
+
+echo "Done."
+S=$SECONDS
+printf "Elapsed time: %d:%02d:%02d\n" "$(($S/3600))" "$(($S/60%60))" "$(($S%60))"
